@@ -52,7 +52,7 @@ export async function runWithSpan<T>(
   operation: (span: Span) => T | Promise<T>,
   options: IRunWithSpanOptions = {},
 ): Promise<T> {
-  const tracer = trace.getTracer(options.scope ?? '@sistinafibel/otel-kit', options.scopeVersion);
+  const tracer = trace.getTracer(options.scope ?? '@cloudjun/otel-kit', options.scopeVersion);
   return tracer.startActiveSpan(
     name,
     {

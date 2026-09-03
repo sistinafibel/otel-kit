@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@sistinafibel/otel-kit"><img alt="npm version" src="https://img.shields.io/npm/v/%40sistinafibel%2Fotel-kit?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@cloudjun/otel-kit"><img alt="npm version" src="https://img.shields.io/npm/v/%40cloudjun%2Fotel-kit?logo=npm&color=cb3837"></a>
   <a href="https://github.com/sistinafibel/otel-kit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sistinafibel/otel-kit/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Node.js >= 22" src="https://img.shields.io/badge/node-%3E%3D22-3c873a?logo=node.js&logoColor=white">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -40,7 +40,7 @@ OpenTelemetry SDK를 제대로 붙이려면 십여 개 패키지, exporter·samp
 ## 설치
 
 ```bash
-npm install @sistinafibel/otel-kit @opentelemetry/api
+npm install @cloudjun/otel-kit @opentelemetry/api
 ```
 
 `@opentelemetry/api`는 프로세스 전역 tracer·meter·logger 레지스트리를 갖는 얇은 패키지라 의존성 트리 안에 단 하나만 있어야 합니다. 그래서 peer dependency로 두었으며 npm 7 이상은 자동으로 설치합니다. 다른 instrumentation 패키지와 함께 쓸 때는 `npm ls @opentelemetry/api`로 중복 설치가 없는지 확인하세요.
@@ -60,16 +60,16 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production,service.version=
 OpenTelemetry는 계측 대상 모듈(`http`, 프레임워크, DB 드라이버)보다 **먼저** 초기화되어야 합니다. 가장 쉬운 방법은 사전 로드 진입점입니다.
 
 ```bash
-node --require @sistinafibel/otel-kit/register dist/main.js
+node --require @cloudjun/otel-kit/register dist/main.js
 # 또는
-NODE_OPTIONS="--require=@sistinafibel/otel-kit/register" node dist/main.js
+NODE_OPTIONS="--require=@cloudjun/otel-kit/register" node dist/main.js
 ```
 
 코드에서 옵션을 넘기고 싶다면 별도 파일을 만들고 진입점의 **첫 번째 import**로 둡니다.
 
 ```ts
 // instrumentation.ts
-import { initObservability } from '@sistinafibel/otel-kit';
+import { initObservability } from '@cloudjun/otel-kit';
 
 export const observability = initObservability({
   defaultServiceName: 'my-api',
@@ -158,7 +158,7 @@ initObservability({
 ### 오류: 로그 필드와 span 상태를 한 번에
 
 ```ts
-import { captureError } from '@sistinafibel/otel-kit';
+import { captureError } from '@cloudjun/otel-kit';
 
 try {
   await paymentGateway.charge(order);
@@ -178,7 +178,7 @@ span에는 예외 메시지와 스택이 exception 이벤트로 항상 기록됩
 ### 백그라운드 작업: 폴링, 큐, cron
 
 ```ts
-import { runWithSpan, SpanKind } from '@sistinafibel/otel-kit';
+import { runWithSpan, SpanKind } from '@cloudjun/otel-kit';
 
 await runWithSpan('orders.sync', () => syncOrders(), {
   kind: SpanKind.CONSUMER,
@@ -193,7 +193,7 @@ span은 자동으로 종료됩니다. 오류는 span에 기록된 뒤 원래 값
 
 ```ts
 import winston from 'winston';
-import { createOtelLogTransport } from '@sistinafibel/otel-kit';
+import { createOtelLogTransport } from '@cloudjun/otel-kit';
 
 const transports: winston.transport[] = [new winston.transports.Console()];
 const otel = createOtelLogTransport('info');
@@ -207,7 +207,7 @@ export const logger = winston.createLogger({ transports });
 ### HTTP 요청 로깅
 
 ```ts
-import { createHttpLoggerMiddleware } from '@sistinafibel/otel-kit';
+import { createHttpLoggerMiddleware } from '@cloudjun/otel-kit';
 
 app.use(createHttpLoggerMiddleware({
   logger,            // log/warn/error(message, context)를 가진 객체면 무엇이든
@@ -224,7 +224,7 @@ app.use(createHttpLoggerMiddleware({
 ### 프록시 뒤의 클라이언트 IP
 
 ```ts
-import { createRealIpMiddleware } from '@sistinafibel/otel-kit';
+import { createRealIpMiddleware } from '@cloudjun/otel-kit';
 
 // 정확히 이 홉 수를 운영자가 통제할 때만 (예: CDN + ingress)
 app.use(createRealIpMiddleware({ trustedProxyCount: 2 }));
@@ -235,7 +235,7 @@ forwarded 헤더는 위조될 수 있으므로 `trustedProxyCount`를 설정하�
 ### 메트릭
 
 ```ts
-import { getMeter } from '@sistinafibel/otel-kit';
+import { getMeter } from '@cloudjun/otel-kit';
 
 const meter = getMeter('orders');
 const failures = meter.createCounter('orders.sync.failures');
@@ -249,7 +249,7 @@ otel-kit은 `MeterProvider`와 exporter를 구성하지만 런타임 메트릭�
 ```ts
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { OTEL_ERROR_INTERCEPTOR_OPTIONS, OtelErrorInterceptor } from '@sistinafibel/otel-kit/nest';
+import { OTEL_ERROR_INTERCEPTOR_OPTIONS, OtelErrorInterceptor } from '@cloudjun/otel-kit/nest';
 
 @Module({
   providers: [
@@ -266,7 +266,7 @@ export class AppModule {}
 
 | 진입점 | export | 용도 |
 | --- | --- | --- |
-| `@sistinafibel/otel-kit` | `initObservability`, `getObservability`, `isOtelExportEnabled` | 부트스트랩, 현재 핸들 조회, 신호 상태 |
+| `@cloudjun/otel-kit` | `initObservability`, `getObservability`, `isOtelExportEnabled` | 부트스트랩, 현재 핸들 조회, 신호 상태 |
 | | `captureError`, `recordErrorOnSpan`, `toErrorLogRecord` | 오류 표준화 |
 | | `runWithSpan` | HTTP 밖 작업의 span |
 | | `createOtelLogTransport` | Winston OTLP transport |
@@ -274,8 +274,8 @@ export class AppModule {}
 | | `getClientIp`, `extractIPv4`, `createRealIpMiddleware` | 신뢰 프록시 기반 IP 결정 |
 | | `getMeter`, `getActiveTraceId`, `getActiveSpanId` | 메트릭과 trace context |
 | | `SpanKind`, `SpanStatusCode` 및 타입 | `@opentelemetry/api` 재export |
-| `@sistinafibel/otel-kit/nest` | `OtelErrorInterceptor`, `OTEL_ERROR_INTERCEPTOR_OPTIONS`, `RealIpMiddleware`, `REAL_IP_OPTIONS` | NestJS 래퍼 |
-| `@sistinafibel/otel-kit/register` | `observability` | `--require`용 사전 로드 진입점 |
+| `@cloudjun/otel-kit/nest` | `OtelErrorInterceptor`, `OTEL_ERROR_INTERCEPTOR_OPTIONS`, `RealIpMiddleware`, `REAL_IP_OPTIONS` | NestJS 래퍼 |
+| `@cloudjun/otel-kit/register` | `observability` | `--require`용 사전 로드 진입점 |
 
 ## 예제
 

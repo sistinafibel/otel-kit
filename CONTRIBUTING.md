@@ -38,7 +38,7 @@ Useful scripts:
 ```
 src/
 ├── index.ts                 # Public, framework-agnostic entry point
-├── nest.ts                  # NestJS-only entry point (@sistinafibel/otel-kit/nest)
+├── nest.ts                  # NestJS-only entry point (@cloudjun/otel-kit/nest)
 ├── register.ts              # Preload entry point (--require ...otel-kit/register)
 ├── init-observability.ts    # SDK bootstrap: providers, exporters, samplers, resource
 ├── tracing.ts               # runWithSpan helper

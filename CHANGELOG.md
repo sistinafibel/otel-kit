@@ -9,6 +9,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- 패키지 이름을 `@cloudjun/otel-kit`으로 변경했습니다. npm 계정 스코프에 맞춘 것으로, GitHub 저장소 주소는 그대로입니다.
 - OpenTelemetry SDK를 2.x 계열로 올리고 Node.js 지원 범위를 22 이상으로 조정했습니다.
 - 표준 OTEL 환경 변수, 신호별 활성화, 리소스 감지, 샘플러 설정을 지원합니다.
 - HTTP 로거의 기본값을 본문·쿼리·클라이언트 IP 비수집으로 변경했습니다.
@@ -22,7 +23,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- `@sistinafibel/otel-kit/register` 사전 로드 진입점
+- `@cloudjun/otel-kit/register` 사전 로드 진입점
 - `captureError`, `recordErrorOnSpan`, `runWithSpan` 오류·백그라운드 작업 계측 도우미
 - NestJS용 `OtelErrorInterceptor`
 - 종료와 강제 플러시를 포함한 관측성 핸들 및 실제 활성 신호 정보

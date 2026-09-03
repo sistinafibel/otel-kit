@@ -1,9 +1,9 @@
 /**
- * @sistinafibel/otel-kit 최소 end-to-end 예제.
- * Minimal end-to-end example for @sistinafibel/otel-kit.
+ * @cloudjun/otel-kit 최소 end-to-end 예제.
+ * Minimal end-to-end example for @cloudjun/otel-kit.
  *
  * 실행 / Start:  npm start
- * (= node --env-file=.env --require @sistinafibel/otel-kit/register index.js)
+ * (= node --env-file=.env --require @cloudjun/otel-kit/register index.js)
  *
  * `register` 사전 로드가 이 파일보다 먼저 OTEL_* 환경 변수로 OpenTelemetry를
  * 초기화하므로, 아래에서 서버를 만들 때 내장 `http` 모듈은 이미 계측된 상태다.
@@ -14,7 +14,7 @@
 const http = require('node:http');
 const winston = require('winston');
 
-const { observability } = require('@sistinafibel/otel-kit/register');
+const { observability } = require('@cloudjun/otel-kit/register');
 const {
   captureError,
   createHttpLoggerMiddleware,
@@ -23,7 +23,7 @@ const {
   getMeter,
   runWithSpan,
   SpanKind,
-} = require('@sistinafibel/otel-kit');
+} = require('@cloudjun/otel-kit');
 
 // --- 로깅: 콘솔 + OTLP (logs 신호가 꺼져 있으면 OTLP transport는 null)
 // --- Logging: console + OTLP (the OTLP transport is null when logs are disabled)

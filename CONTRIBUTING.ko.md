@@ -38,7 +38,7 @@ npm test
 ```
 src/
 ├── index.ts                 # 공개 진입점 (프레임워크 무관)
-├── nest.ts                  # NestJS 전용 진입점 (@sistinafibel/otel-kit/nest)
+├── nest.ts                  # NestJS 전용 진입점 (@cloudjun/otel-kit/nest)
 ├── register.ts              # 사전 로드 진입점 (--require ...otel-kit/register)
 ├── init-observability.ts    # SDK 부트스트랩: provider, exporter, sampler, resource
 ├── tracing.ts               # runWithSpan 도우미

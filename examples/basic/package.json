@@ -1,14 +1,14 @@
 {
   "name": "otel-kit-example-basic",
   "private": true,
-  "description": "Minimal Node.js HTTP server instrumented with @sistinafibel/otel-kit",
+  "description": "Minimal Node.js HTTP server instrumented with @cloudjun/otel-kit",
   "scripts": {
-    "start": "node --env-file=.env --require @sistinafibel/otel-kit/register index.js",
+    "start": "node --env-file=.env --require @cloudjun/otel-kit/register index.js",
     "collector": "docker compose up"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@sistinafibel/otel-kit": "file:../..",
+    "@cloudjun/otel-kit": "file:../..",
     "winston": "^3.13.0"
   }
 }

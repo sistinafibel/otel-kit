@@ -1,6 +1,6 @@
 /**
- * @sistinafibel/otel-kit — 프레임워크 무관 진입점.
- * NestJS 전용 미들웨어는 `@sistinafibel/otel-kit/nest` 에서 import 한다.
+ * @cloudjun/otel-kit — 프레임워크 무관 진입점.
+ * NestJS 전용 미들웨어는 `@cloudjun/otel-kit/nest` 에서 import 한다.
  */
 export {
   initObservability,

@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@sistinafibel/otel-kit"><img alt="npm version" src="https://img.shields.io/npm/v/%40sistinafibel%2Fotel-kit?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@cloudjun/otel-kit"><img alt="npm version" src="https://img.shields.io/npm/v/%40cloudjun%2Fotel-kit?logo=npm&color=cb3837"></a>
   <a href="https://github.com/sistinafibel/otel-kit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/sistinafibel/otel-kit/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D22-3c873a?logo=node.js&logoColor=white">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
@@ -40,7 +40,7 @@ Setting up the OpenTelemetry SDK correctly means juggling a dozen packages, expo
 ## Installation
 
 ```bash
-npm install @sistinafibel/otel-kit @opentelemetry/api
+npm install @cloudjun/otel-kit @opentelemetry/api
 ```
 
 `@opentelemetry/api` is a thin package that holds the process-wide tracer, meter and logger registries, so exactly one copy must exist in your dependency tree. That is why it is a peer dependency (npm 7+ installs it automatically). When you combine otel-kit with other instrumentation packages, run `npm ls @opentelemetry/api` to make sure it is not duplicated.
@@ -60,16 +60,16 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production,service.version=
 OpenTelemetry must be initialised **before** the modules it instruments (`http`, frameworks, DB drivers) are loaded. The easiest way is the preload entry point:
 
 ```bash
-node --require @sistinafibel/otel-kit/register dist/main.js
+node --require @cloudjun/otel-kit/register dist/main.js
 # or
-NODE_OPTIONS="--require=@sistinafibel/otel-kit/register" node dist/main.js
+NODE_OPTIONS="--require=@cloudjun/otel-kit/register" node dist/main.js
 ```
 
 Prefer to pass options in code? Create a file and make it the **first import** of your entry point:
 
 ```ts
 // instrumentation.ts
-import { initObservability } from '@sistinafibel/otel-kit';
+import { initObservability } from '@cloudjun/otel-kit';
 
 export const observability = initObservability({
   defaultServiceName: 'my-api',
@@ -158,7 +158,7 @@ initObservability({
 ### Errors: log fields + span status in one call
 
 ```ts
-import { captureError } from '@sistinafibel/otel-kit';
+import { captureError } from '@cloudjun/otel-kit';
 
 try {
   await paymentGateway.charge(order);
@@ -178,7 +178,7 @@ The span always receives the exception message and stack trace as an exception e
 ### Background work: polling, queues, cron
 
 ```ts
-import { runWithSpan, SpanKind } from '@sistinafibel/otel-kit';
+import { runWithSpan, SpanKind } from '@cloudjun/otel-kit';
 
 await runWithSpan('orders.sync', () => syncOrders(), {
   kind: SpanKind.CONSUMER,
@@ -193,7 +193,7 @@ The span is ended for you. Errors are recorded on the span and re-thrown unchang
 
 ```ts
 import winston from 'winston';
-import { createOtelLogTransport } from '@sistinafibel/otel-kit';
+import { createOtelLogTransport } from '@cloudjun/otel-kit';
 
 const transports: winston.transport[] = [new winston.transports.Console()];
 const otel = createOtelLogTransport('info');
@@ -207,7 +207,7 @@ Log records automatically carry `trace_id` / `span_id` when written inside an ac
 ### HTTP request logging
 
 ```ts
-import { createHttpLoggerMiddleware } from '@sistinafibel/otel-kit';
+import { createHttpLoggerMiddleware } from '@cloudjun/otel-kit';
 
 app.use(createHttpLoggerMiddleware({
   logger,            // anything with log/warn/error(message, context)
@@ -224,7 +224,7 @@ The `user` field defaults to `id` (or `idx`), `role` and `isAnon` picked from `r
 ### Client IP behind proxies
 
 ```ts
-import { createRealIpMiddleware } from '@sistinafibel/otel-kit';
+import { createRealIpMiddleware } from '@cloudjun/otel-kit';
 
 // Only when you control exactly this many hops (e.g. CDN + ingress)
 app.use(createRealIpMiddleware({ trustedProxyCount: 2 }));
@@ -235,7 +235,7 @@ Forwarded headers are spoofable, so they are ignored until you set `trustedProxy
 ### Metrics
 
 ```ts
-import { getMeter } from '@sistinafibel/otel-kit';
+import { getMeter } from '@cloudjun/otel-kit';
 
 const meter = getMeter('orders');
 const failures = meter.createCounter('orders.sync.failures');
@@ -249,7 +249,7 @@ otel-kit configures the `MeterProvider` and exporter but does not emit runtime m
 ```ts
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { OTEL_ERROR_INTERCEPTOR_OPTIONS, OtelErrorInterceptor } from '@sistinafibel/otel-kit/nest';
+import { OTEL_ERROR_INTERCEPTOR_OPTIONS, OtelErrorInterceptor } from '@cloudjun/otel-kit/nest';
 
 @Module({
   providers: [
@@ -266,7 +266,7 @@ export class AppModule {}
 
 | Entry point | Export | Purpose |
 | --- | --- | --- |
-| `@sistinafibel/otel-kit` | `initObservability`, `getObservability`, `isOtelExportEnabled` | Bootstrap, current handle and signal status |
+| `@cloudjun/otel-kit` | `initObservability`, `getObservability`, `isOtelExportEnabled` | Bootstrap, current handle and signal status |
 | | `captureError`, `recordErrorOnSpan`, `toErrorLogRecord` | Error normalisation |
 | | `runWithSpan` | Spans for non-HTTP work |
 | | `createOtelLogTransport` | Winston OTLP transport |
@@ -274,8 +274,8 @@ export class AppModule {}
 | | `getClientIp`, `extractIPv4`, `createRealIpMiddleware` | Trusted-proxy IP resolution |
 | | `getMeter`, `getActiveTraceId`, `getActiveSpanId` | Metrics and trace context |
 | | `SpanKind`, `SpanStatusCode` and types | Re-exported from `@opentelemetry/api` |
-| `@sistinafibel/otel-kit/nest` | `OtelErrorInterceptor`, `OTEL_ERROR_INTERCEPTOR_OPTIONS`, `RealIpMiddleware`, `REAL_IP_OPTIONS` | NestJS wrappers |
-| `@sistinafibel/otel-kit/register` | `observability` | Preload entry for `--require` |
+| `@cloudjun/otel-kit/nest` | `OtelErrorInterceptor`, `OTEL_ERROR_INTERCEPTOR_OPTIONS`, `RealIpMiddleware`, `REAL_IP_OPTIONS` | NestJS wrappers |
+| `@cloudjun/otel-kit/register` | `observability` | Preload entry for `--require` |
 
 ## Examples
 

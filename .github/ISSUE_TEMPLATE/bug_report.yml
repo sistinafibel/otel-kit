@@ -1,0 +1,52 @@
+name: Bug report
+description: Something is not working as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please fill in as much as you can so we can reproduce it.
+  - type: input
+    id: version
+    attributes:
+      label: otel-kit version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "22.11.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: OTLP backend
+      options:
+        - SigNoz (self-hosted)
+        - SigNoz Cloud
+        - OpenTelemetry Collector
+        - Grafana / Tempo / Loki
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the error message or the unexpected telemetry you observed.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: A minimal snippet or repository link is ideal.
+      render: ts
+  - type: textarea
+    id: env
+    attributes:
+      label: Relevant OTEL_* environment variables
+      description: Please redact any ingestion keys or headers.
+      render: dotenv

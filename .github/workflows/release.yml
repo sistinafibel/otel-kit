@@ -1,0 +1,28 @@
+name: Release
+
+# npm Trusted Publishing을 설정한 뒤 v* 태그를 푸시하면 OIDC로 배포한다.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.9.0
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:ci
+      - name: Verify tag matches package version
+        run: node -e "if ('v' + require('./package.json').version !== process.env.GITHUB_REF_NAME) process.exit(1)"
+      - run: npm publish --access public

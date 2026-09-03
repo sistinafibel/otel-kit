@@ -1,0 +1,33 @@
+# OTLP/HTTP로 받은 세 신호(traces / logs / metrics)를 debug exporter로 콘솔에 출력한다.
+# Receives all three signals over OTLP/HTTP and prints them with the debug exporter.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # 소량씩 묶어 내보낸다 (운영 환경 기본 권장 프로세서)
+  # Batches data before export (recommended default processor)
+  batch: {}
+
+exporters:
+  # verbosity: detailed 로 두면 span 속성, 로그 본문, metric data point까지 모두 보인다.
+  # With verbosity: detailed you see span attributes, log bodies and metric data points.
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

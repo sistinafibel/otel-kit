@@ -1,0 +1,125 @@
+{
+  "name": "@sistinafibel/otel-kit",
+  "version": "0.1.0",
+  "description": "Zero-config OpenTelemetry bootstrap for Node.js services: traces, logs (winston), metrics over OTLP/HTTP. Works with SigNoz, Grafana, or any OTLP backend. Optional NestJS middlewares.",
+  "keywords": [
+    "opentelemetry",
+    "otel",
+    "otlp",
+    "signoz",
+    "winston",
+    "nestjs",
+    "observability",
+    "tracing",
+    "logging",
+    "metrics"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./nest": {
+      "types": "./dist/nest.d.ts",
+      "default": "./dist/nest.js"
+    },
+    "./register": {
+      "types": "./dist/register.d.ts",
+      "default": "./dist/register.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "./dist/register.js"
+  ],
+  "typesVersions": {
+    "*": {
+      "nest": [
+        "dist/nest.d.ts"
+      ],
+      "register": [
+        "dist/register.d.ts"
+      ],
+      "*": [
+        "dist/*"
+      ]
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@11.9.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "test:ci": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage --runInBand",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run test:ci"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sistinafibel/otel-kit.git"
+  },
+  "homepage": "https://github.com/sistinafibel/otel-kit#readme",
+  "bugs": {
+    "url": "https://github.com/sistinafibel/otel-kit/issues"
+  },
+  "author": "sistinafibel",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@opentelemetry/api-logs": "0.222.0",
+    "@opentelemetry/exporter-logs-otlp-http": "0.222.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.222.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+    "@opentelemetry/instrumentation": "0.222.0",
+    "@opentelemetry/instrumentation-http": "0.222.0",
+    "@opentelemetry/resources": "2.11.0",
+    "@opentelemetry/sdk-logs": "0.222.0",
+    "@opentelemetry/sdk-metrics": "2.11.0",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
+    "@opentelemetry/sdk-trace-node": "2.11.0",
+    "@opentelemetry/semantic-conventions": "1.43.0",
+    "@opentelemetry/winston-transport": "0.32.0"
+  },
+  "peerDependencies": {
+    "@nestjs/common": ">=10 <13",
+    "@opentelemetry/api": "^1.9.0",
+    "rxjs": ">=7.1 <8",
+    "winston": ">=3 <4"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    },
+    "winston": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@opentelemetry/api": "1.9.1",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "rxjs": "^7.8.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.0",
+    "winston": "^3.13.0"
+  }
+}

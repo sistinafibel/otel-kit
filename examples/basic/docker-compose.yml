@@ -1,0 +1,12 @@
+# 받은 telemetry를 전부 stdout에 출력하는 로컬 OpenTelemetry Collector.
+# Local OpenTelemetry Collector that prints everything it receives to stdout.
+#
+# 실행 / Run:  docker compose up
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.121.0
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel-collector.yaml:ro
+    ports:
+      - "4318:4318" # OTLP/HTTP (앱의 OTEL_EXPORTER_OTLP_ENDPOINT가 가리키는 포트)

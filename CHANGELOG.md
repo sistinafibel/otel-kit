@@ -5,6 +5,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-04
+
 ### Changed
 
 - OpenTelemetry SDK를 2.x 계열로 올리고 Node.js 지원 범위를 22 이상으로 조정했습니다.

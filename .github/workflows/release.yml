@@ -1,28 +1,105 @@
 name: Release
 
-# npm Trusted Publishing을 설정한 뒤 v* 태그를 푸시하면 OIDC로 배포한다.
+# v* 태그를 푸시하면 실행된다. 사전 조건: npmjs.com 에서 이 저장소 · 워크플로(release.yml) ·
+# environment(npm-publish)에 대한 Trusted Publishing(OIDC)을 설정해 둔다. 저장소에는 npm 토큰을 저장하지 않는다.
+#
+#   1. 태그와 package.json 버전 일치 확인 (가장 먼저 검사해 빨리 실패)
+#   2. typecheck · 테스트(커버리지 게이트) · 빌드 · 패키지 스모크 테스트
+#   3. npm 배포 (1.2.3-beta.1 같은 pre-release 는 latest 대신 next dist-tag)
+#   4. GitHub Release 생성 — CHANGELOG 의 해당 버전 섹션을 노트로, 배포한 것과 같은 dist/ 로 만든 tarball 을 자산으로 첨부
+#
+# 공급망 하드닝: OIDC 토큰을 발급받을 수 있는 잡에서 서드파티 설치 스크립트를 실행하지 않도록
+# 의존성 설치는 --ignore-scripts 로 돌리고(lockfile 에서 설치 스크립트를 가진 패키지는 darwin 전용 fsevents 뿐이다),
+# checkout 은 자격증명을 .git/config 에 남기지 않는다.
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  id-token: write
+
+# 릴리스는 한 번에 하나씩, 도중에 취소하지 않는다 (태그를 연달아 푸시할 때 latest dist-tag 경합 방지)
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   publish:
+    name: publish to npm
     runs-on: ubuntu-latest
+    # 저장소 Settings → Environments 에서 npm-publish 에 required reviewers 를 걸면 수동 승인 게이트가 된다
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing(OIDC) 토큰 발급에 필요
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify tag matches package version
+        run: |
+          expected="v$(node -p "require('./package.json').version")"
+          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::태그 $GITHUB_REF_NAME 이(가) package.json 버전($expected)과 다릅니다"
+            exit 1
+          fi
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - run: npm install --global npm@11.9.0
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run test:ci
-      - name: Verify tag matches package version
-        run: node -e "if ('v' + require('./package.json').version !== process.env.GITHUB_REF_NAME) process.exit(1)"
-      - run: npm publish --access public
+      - run: npm run build
+      - name: Package smoke test
+        run: bash scripts/smoke-package.sh # 배포 직전에 dist/ 와 exports map 을 소비자 입장에서 검증
+      - name: Publish
+        run: |
+          # pre-release 버전이면 latest 를 덮어쓰지 않도록 next 태그로 올린다
+          case "$GITHUB_REF_NAME" in
+            *-*) dist_tag=next ;;
+            *)   dist_tag=latest ;;
+          esac
+          # typecheck·테스트·빌드·스모크는 위에서 이미 끝났으므로 prepack/prepublishOnly 를 다시 돌리지 않는다
+          npm publish --access public --tag "$dist_tag" --ignore-scripts
+      - name: Pack tarball for the GitHub Release
+        run: npm pack --ignore-scripts # 방금 배포한 것과 같은 dist/ 로 만든다
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: package-tarball
+          path: '*.tgz'
+          retention-days: 7
+          if-no-files-found: error
+
+  github-release:
+    name: create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Release 생성과 자산 업로드에 필요
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false # CHANGELOG.md 와 scripts/ 만 필요하다
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: package-tarball
+      - name: Extract release notes from CHANGELOG
+        # 섹션이 없거나 파일을 못 읽어도 릴리스 생성은 막지 않는다 (npm 배포는 이미 끝났다)
+        run: bash scripts/changelog-section.sh "${GITHUB_REF_NAME#v}" > release-notes.md || true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          args=(--title "$GITHUB_REF_NAME" --verify-tag)
+          if grep -q '[^[:space:]]' release-notes.md; then
+            args+=(--notes-file release-notes.md)
+          else
+            # CHANGELOG 에 해당 버전 섹션이 없으면 PR 목록으로 노트를 자동 생성한다
+            args+=(--generate-notes)
+          fi
+          case "$GITHUB_REF_NAME" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" "${args[@]}" ./*.tgz

@@ -31,6 +31,7 @@ npm test
 | `npm test` | Jest 테스트 실행 |
 | `npm run test:cov` | 커버리지 리포트와 함께 테스트 실행 |
 | `npm run test:ci` | CI와 동일: 커버리지 + `--runInBand` |
+| `bash scripts/smoke-package.sh` | CI와 동일: tarball을 만들어 빈 프로젝트에 설치한 뒤 모든 진입점을 로드 |
 
 ## 프로젝트 구조
 
@@ -61,7 +62,7 @@ src/
 6. 푸시 전에 전체 검사를 돌립니다:
 
    ```bash
-   npm run typecheck && npm run build && npm run test:ci && npm pack --dry-run
+   npm run typecheck && npm run build && npm run test:ci && npm pack --dry-run && bash scripts/smoke-package.sh
    ```
 
 ## 커밋 메시지
@@ -80,14 +81,15 @@ src/
 
 - PR 하나에 논리적 변경 하나.
 - PR 템플릿을 채워 주세요. *무엇*보다 *왜*를 설명해 주세요.
-- Node 22와 24에서 CI가 통과해야 합니다.
+- Node 22와 24에서 CI가 통과해야 합니다. CI는 typecheck·빌드·커버리지 게이트 외에도 실제 tarball을 빈 프로젝트에 설치해 `exports` map을 검증하고, CodeQL로 변경 사항을 스캔합니다.
 - 메인테이너가 리뷰하고 변경을 요청할 수 있습니다. 대화는 PR 안에서 이어 주세요.
 
 ## 릴리스 (메인테이너용)
 
 1. `package.json`의 `version`을 올리고 `CHANGELOG.md`의 **Unreleased** 항목을 새 버전 아래로 옮깁니다.
 2. 커밋 후 태그를 붙입니다: `git tag v1.2.3 && git push --tags`
-3. [release 워크플로](.github/workflows/release.yml)가 태그와 패키지 버전이 일치하는지 확인한 뒤 Trusted Publishing(OIDC)으로 npm에 배포합니다. 저장소에 npm 토큰을 저장하지 않습니다.
+3. [release 워크플로](.github/workflows/release.yml)가 태그와 패키지 버전이 일치하는지 확인한 뒤 Trusted Publishing(OIDC)으로 npm에 배포하고, `CHANGELOG.md`의 해당 버전 섹션을 노트로 삼아 tarball을 첨부한 GitHub Release를 만듭니다. `v1.2.3-beta.1` 같은 pre-release 버전은 `next` dist-tag로 올라가고 pre-release로 표시됩니다. 저장소에 npm 토큰을 저장하지 않습니다.
+4. 최초 1회 설정: npmjs.com에서 이 패키지의 Trusted Publisher로 이 저장소, 워크플로 `release.yml`, environment `npm-publish`를 등록합니다. 배포 전에 수동 승인을 받고 싶다면 저장소의 *Settings → Environments*에서 `npm-publish` environment에 required reviewers를 추가하세요.
 
 ## 라이선스
 

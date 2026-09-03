@@ -1,0 +1,36 @@
+name: CodeQL
+
+# GitHub 코드 스캔. main 푸시·모든 PR 마다 돌고, 새 취약점 쿼리를 반영하도록 매주 한 번 더 돈다.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '30 3 * * 1' # 매주 월요일 03:30 UTC
+
+permissions:
+  contents: read
+
+# PR 에 연속 푸시가 오면 이전 분석은 취소한다 (분석당 수 분이 걸린다)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      security-events: write # 분석 결과(SARIF) 업로드에 필요
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          category: /language:javascript-typescript

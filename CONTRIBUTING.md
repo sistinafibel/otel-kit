@@ -31,6 +31,7 @@ Useful scripts:
 | `npm test` | Run the Jest suite |
 | `npm run test:cov` | Run tests with a coverage report |
 | `npm run test:ci` | Same as CI: coverage + `--runInBand` |
+| `bash scripts/smoke-package.sh` | Same as CI: pack the tarball, install it in an empty project and load every entry point |
 
 ## Project layout
 
@@ -61,7 +62,7 @@ src/
 6. Run the full check before pushing:
 
    ```bash
-   npm run typecheck && npm run build && npm run test:ci && npm pack --dry-run
+   npm run typecheck && npm run build && npm run test:ci && npm pack --dry-run && bash scripts/smoke-package.sh
    ```
 
 ## Commit messages
@@ -80,14 +81,15 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`.
 
 - One logical change per PR.
 - Fill in the PR template. Describe *why*, not only *what*.
-- CI must be green on Node 22 and 24.
+- CI must be green on Node 22 and 24. Besides typecheck, build and the coverage gate, CI installs the packed tarball in an empty project to check the `exports` map, and CodeQL scans the change.
 - A maintainer will review and may request changes. Please keep the conversation in the PR.
 
 ## Releasing (maintainers)
 
 1. Update `version` in `package.json` and move **Unreleased** entries under the new version in `CHANGELOG.md`.
 2. Commit, then tag: `git tag v1.2.3 && git push --tags`.
-3. The [release workflow](.github/workflows/release.yml) verifies the tag matches the package version and publishes to npm via Trusted Publishing (OIDC). No npm token is stored in the repository.
+3. The [release workflow](.github/workflows/release.yml) verifies the tag matches the package version, publishes to npm via Trusted Publishing (OIDC), then creates a GitHub Release using the matching `CHANGELOG.md` section as notes with the tarball attached. Pre-release versions such as `v1.2.3-beta.1` go to the `next` dist-tag and are marked as pre-release. No npm token is stored in the repository.
+4. One-time setup: on npmjs.com, add a Trusted Publisher for this package pointing at this repository, workflow `release.yml` and environment `npm-publish`. To require a manual approval before every publish, add required reviewers to the `npm-publish` environment under the repository's *Settings → Environments*.
 
 ## License
 

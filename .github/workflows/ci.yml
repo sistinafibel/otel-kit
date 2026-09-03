@@ -8,14 +8,24 @@ on:
 permissions:
   contents: read
 
+# PR 에 새 커밋이 올라오면 진행 중이던 이전 실행은 취소한다. main 푸시는 끝까지 돌려 기록을 남긴다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # typecheck → build → 테스트(커버리지 80% 게이트)를 지원하는 Node 버전마다 돌린다
   test:
+    name: test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node: [22, 24]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false # 어떤 잡도 git push 를 하지 않으므로 토큰을 .git/config 에 남기지 않는다
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ matrix.node }}
@@ -24,4 +34,30 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm run test:ci
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: node scripts/coverage-summary.js
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: coverage-node-${{ matrix.node }}
+          path: coverage/
+          retention-days: 14
+          if-no-files-found: ignore
       - run: npm pack --dry-run --ignore-scripts
+
+  # 실제 tarball 을 빈 프로젝트에 설치해 exports map 과 파일 구성이 소비자 입장에서 올바른지 확인한다
+  package:
+    name: package smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: bash scripts/smoke-package.sh

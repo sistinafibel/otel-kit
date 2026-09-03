@@ -24,6 +24,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - `captureError`, `recordErrorOnSpan`, `runWithSpan` 오류·백그라운드 작업 계측 도우미
 - NestJS용 `OtelErrorInterceptor`
 - 종료와 강제 플러시를 포함한 관측성 핸들 및 실제 활성 신호 정보
+- CI: 실제 tarball 을 설치해 진입점을 검증하는 패키지 스모크 테스트(`scripts/smoke-package.sh`), 커버리지 요약·아티팩트, CodeQL 코드 스캔, 태그 푸시 시 GitHub Release 자동 생성
 - 초기화된 핸들을 조회하는 `getObservability`. Winston transport 헬퍼가 이를 통해 `enableLogs: false` 같은 옵션까지 반영합니다.
 
 ### Fixed

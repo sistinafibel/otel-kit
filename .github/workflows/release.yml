@@ -33,7 +33,7 @@ jobs:
       contents: read
       id-token: write # npm Trusted Publishing(OIDC) 토큰 발급에 필요
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify tag matches package version
@@ -80,7 +80,7 @@ jobs:
     permissions:
       contents: write # Release 생성과 자산 업로드에 필요
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false # CHANGELOG.md 와 scripts/ 만 필요하다
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6

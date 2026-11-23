@@ -1,5 +1,5 @@
 /**
- * HTTP span 에 실리는 URL 의 query string 값을 가리는 헬퍼.
+ * span 에 실리는 URL 의 query string 값을 가리는 헬퍼.
  *
  * HttpInstrumentation 은 나가는 요청의 `url.full` 과 들어오는 요청의 `url.query` 에 query string 을 그대로 싣고,
  * 기본으로 가리는 키는 서명 관련 네 개뿐이다. 그래서 OAuth 토큰 요청의 `client_secret` 이나 조회 API 의 계좌번호처럼
@@ -171,43 +171,66 @@ interface IReadableSpanLike {
 }
 
 /**
- * HttpInstrumentation 의 `requestHook` 으로 쓸 함수를 만든다.
+ * span 에 실린 URL 속성을 가린 값으로 덮어쓴다.
+ * 방향은 span 종류로 정한다: CLIENT 는 나가는 요청, 그 밖(SERVER · INTERNAL 등)은 들어오는 요청으로 본다.
+ */
+function redactSpanUrls(span: Span, config: IResolvedQueryRedaction): void {
+  const readable = span as unknown as IReadableSpanLike;
+  const attributes = readable.attributes;
+  if (!attributes) {
+    return;
+  }
+  const mode = readable.kind === SpanKind.CLIENT ? config.outgoing : config.incoming;
+  if (mode === 'none') {
+    return;
+  }
+  for (const name of URL_ATTRIBUTES) {
+    const value = attributes[name];
+    if (typeof value === 'string' && value.includes('?')) {
+      span.setAttribute(name, redactUrlWith(value, mode, config));
+    }
+  }
+  for (const name of QUERY_ATTRIBUTES) {
+    const value = attributes[name];
+    if (typeof value === 'string' && value !== '') {
+      span.setAttribute(name, redactQueryString(value, mode, config));
+    }
+  }
+}
+
+/**
+ * 모든 span 의 URL 속성을 시작 시점에 가리는 span processor 를 만든다.
  *
- * span 이 만들어진 직후에 불려, 이미 실린 URL 속성을 가린 값으로 덮어쓴다. span 이 끝나 내보내지기 전이므로
+ * HttpInstrumentation 의 `requestHook` 으로는 그 계측이 만든 span 만 가릴 수 있다. 그런데 다른 계측도 요청 URL 을
+ * 자기 span 에 복사한다 (예: NestJS 계측은 컨트롤러 span 에 `url.full` 로 원본 URL 을 싣는다). processor 로 걸면
+ * 어떤 계측이 만든 span 이든 시작할 때 실린 URL 속성이 가려진다. span 이 끝나 내보내지기 전이므로
  * 가리지 않은 값은 프로세스 밖으로 나가지 않는다.
  *
+ * span 을 시작한 **뒤에** `setAttribute` 로 넣은 URL 은 가리지 못한다. 직접 URL 을 넣을 때는 `redactUrlQuery` 를 쓴다.
+ *
  * @param options 방식 · 키 설정
- * @returns `requestHook` 함수. 두 방향 모두 `none` 이면 undefined (훅을 걸 필요가 없다)
+ * @returns span processor. 두 방향 모두 `none` 이면 undefined (걸 필요가 없다)
  * @throws TypeError 알 수 없는 방식 이름일 때
  */
-export function createHttpQueryRedactionHook(
+export function createQueryRedactionSpanProcessor(
   options: IHttpQueryRedactionOptions = {},
-): ((span: Span) => void) | undefined {
+): IQueryRedactionSpanProcessor | undefined {
   const config = resolveQueryRedaction(options);
   if (config.outgoing === 'none' && config.incoming === 'none') {
     return undefined;
   }
-  return (span: Span): void => {
-    const readable = span as unknown as IReadableSpanLike;
-    const attributes = readable.attributes;
-    if (!attributes) {
-      return;
-    }
-    const mode = readable.kind === SpanKind.CLIENT ? config.outgoing : config.incoming;
-    if (mode === 'none') {
-      return;
-    }
-    for (const name of URL_ATTRIBUTES) {
-      const value = attributes[name];
-      if (typeof value === 'string' && value.includes('?')) {
-        span.setAttribute(name, redactUrlWith(value, mode, config));
-      }
-    }
-    for (const name of QUERY_ATTRIBUTES) {
-      const value = attributes[name];
-      if (typeof value === 'string' && value !== '') {
-        span.setAttribute(name, redactQueryString(value, mode, config));
-      }
-    }
+  return {
+    onStart: (span: Span): void => redactSpanUrls(span, config),
+    onEnd: (): void => undefined,
+    forceFlush: async (): Promise<void> => undefined,
+    shutdown: async (): Promise<void> => undefined,
   };
+}
+
+/** SDK 의 `SpanProcessor` 와 같은 모양. sdk-trace-base 타입을 이 파일까지 끌어오지 않으려고 따로 적는다 */
+export interface IQueryRedactionSpanProcessor {
+  onStart(span: Span): void;
+  onEnd(): void;
+  forceFlush(): Promise<void>;
+  shutdown(): Promise<void>;
 }

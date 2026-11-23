@@ -22,7 +22,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Instrumentation, registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import {
-  createHttpQueryRedactionHook,
+  createQueryRedactionSpanProcessor,
   IHttpQueryRedactionOptions,
 } from './http/query-redaction';
 import {
@@ -42,6 +42,7 @@ import {
   BatchSpanProcessor,
   ParentBasedSampler,
   Sampler,
+  SpanProcessor,
   TraceIdRatioBasedSampler,
 } from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
@@ -80,7 +81,7 @@ export type ResourceAttributeValue = string | number | boolean;
  * @property sampler 명시적 sampler. OTEL_TRACES_SAMPLER 보다 우선한다
  * @property prodSampleRate @deprecated OTEL_TRACES_SAMPLER_ARG 또는 `sampler` 를 쓴다. 설정된 경우에만 비율 sampler 를 적용한다
  * @property extraInstrumentations HttpInstrumentation 외에 추가로 등록할 계측
- * @property httpQueryRedaction HTTP span 의 URL query 값을 가리는 방식. 기본은 나가는 요청 `all`(전부) · 들어오는 요청 `sensitive`(민감 키만)
+ * @property httpQueryRedaction span 에 실리는 URL query 값을 가리는 방식 (어떤 계측이 만든 span 이든 적용). 기본은 나가는 요청 `all`(전부) · 들어오는 요청 `sensitive`(민감 키만)
  * @property resourceAttributes 모든 signal 에 공통 부착할 리소스 속성. OTEL_RESOURCE_ATTRIBUTES 환경변수가 최종 우선권을 가진다
  * @property enableTraces false 로 두면 endpoint 가 있어도 트레이스를 끈다 (기본 true)
  * @property enableLogs false 로 두면 endpoint 가 있어도 로그를 끈다 (기본 true)
@@ -128,8 +129,8 @@ interface IFlushableProvider {
 interface IResolvedSettings {
   sampler: Sampler | undefined;
   metricTiming: { interval: number; timeout: number } | undefined;
-  /** HTTP span 의 URL query 값을 가리는 훅. 두 방향 모두 `none` 이면 undefined */
-  httpRequestHook: ReturnType<typeof createHttpQueryRedactionHook>;
+  /** span 의 URL query 값을 가리는 processor. 두 방향 모두 `none` 이면 undefined */
+  queryRedaction: ReturnType<typeof createQueryRedactionSpanProcessor>;
 }
 
 const DISABLED_SIGNALS: Readonly<IObservabilitySignals> = Object.freeze({
@@ -378,7 +379,7 @@ function resolveSettings(
     sampler: signals.traces ? resolveSampler(options) : undefined,
     metricTiming: signals.metrics ? resolveMetricTiming(options) : undefined,
     // 잘못된 방식 이름은 여기서(전역 등록 전에) 걸러진다
-    httpRequestHook: signals.traces ? createHttpQueryRedactionHook(options.httpQueryRedaction) : undefined,
+    queryRedaction: signals.traces ? createQueryRedactionSpanProcessor(options.httpQueryRedaction) : undefined,
   };
 }
 
@@ -450,15 +451,16 @@ function registerProviders(
     const tracerProvider = new NodeTracerProvider({
       resource,
       sampler: settings.sampler,
-      spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
+      // 가리는 processor 를 먼저 둔다. 어떤 계측이 만든 span 이든 시작할 때 URL query 값이 가려진다
+      spanProcessors: [
+        ...(settings.queryRedaction ? [settings.queryRedaction as SpanProcessor] : []),
+        new BatchSpanProcessor(new OTLPTraceExporter()),
+      ],
       ...(meterProvider ? { meterProvider } : {}),
     });
     tracerProvider.register();
     disableInstrumentations = registerInstrumentations({
-      instrumentations: [
-        new HttpInstrumentation({ requestHook: settings.httpRequestHook }),
-        ...(options.extraInstrumentations ?? []),
-      ],
+      instrumentations: [new HttpInstrumentation(), ...(options.extraInstrumentations ?? [])],
     });
     providers.push(tracerProvider);
   }

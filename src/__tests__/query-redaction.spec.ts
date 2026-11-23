@@ -2,7 +2,7 @@ import { SpanKind } from '@opentelemetry/api';
 import { InMemorySpanExporter, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import {
-  createHttpQueryRedactionHook,
+  createQueryRedactionSpanProcessor,
   redactQueryString,
   redactUrlQuery,
   resolveQueryRedaction,
@@ -85,62 +85,70 @@ describe('resolveQueryRedaction', () => {
   });
 });
 
-describe('createHttpQueryRedactionHook', () => {
-  it('두 방향 모두 none 이면 훅을 만들지 않는다', () => {
-    expect(createHttpQueryRedactionHook({ outgoing: 'none', incoming: 'none' })).toBeUndefined();
+describe('createQueryRedactionSpanProcessor', () => {
+  it('두 방향 모두 none 이면 만들지 않는다', () => {
+    expect(createQueryRedactionSpanProcessor({ outgoing: 'none', incoming: 'none' })).toBeUndefined();
   });
 
   it('속성을 읽을 수 없는 span 은 건드리지 않는다', () => {
-    const hook = createHttpQueryRedactionHook()!;
+    const processor = createQueryRedactionSpanProcessor()!;
     const setAttribute = jest.fn();
-    hook({ setAttribute } as never);
+    processor.onStart({ setAttribute } as never);
     expect(setAttribute).not.toHaveBeenCalled();
   });
 
   it('한 방향만 none 이면 그 방향은 그대로 둔다', () => {
-    const hook = createHttpQueryRedactionHook({ outgoing: 'none' })!;
+    const processor = createQueryRedactionSpanProcessor({ outgoing: 'none' })!;
     const setAttribute = jest.fn();
-    hook({ kind: SpanKind.CLIENT, attributes: { 'url.full': 'http://x/?code=1' }, setAttribute } as never);
+    processor.onStart({ kind: SpanKind.CLIENT, attributes: { 'url.full': 'http://x/?code=1' }, setAttribute } as never);
     expect(setAttribute).not.toHaveBeenCalled();
-    hook({ kind: SpanKind.SERVER, attributes: { 'url.query': 'code=1&q=a' }, setAttribute } as never);
+    processor.onStart({ kind: SpanKind.SERVER, attributes: { 'url.query': 'code=1&q=a' }, setAttribute } as never);
     expect(setAttribute).toHaveBeenCalledWith('url.query', 'code=REDACTED&q=a');
   });
 
   it('옛 속성 이름(http.url · http.target)도 가린다', () => {
-    const hook = createHttpQueryRedactionHook()!;
+    const processor = createQueryRedactionSpanProcessor()!;
     const setAttribute = jest.fn();
-    hook({ kind: SpanKind.SERVER, attributes: { 'http.target': '/cb?code=1&q=a', 'http.url': 'http://x/cb?code=1' }, setAttribute } as never);
+    processor.onStart({ kind: SpanKind.SERVER, attributes: { 'http.target': '/cb?code=1&q=a', 'http.url': 'http://x/cb?code=1' }, setAttribute } as never);
     expect(setAttribute).toHaveBeenCalledWith('http.target', '/cb?code=REDACTED&q=a');
     expect(setAttribute).toHaveBeenCalledWith('http.url', 'http://x/cb?code=REDACTED');
   });
+
+  it('onEnd · forceFlush · shutdown 은 아무 일도 하지 않는다', async () => {
+    const processor = createQueryRedactionSpanProcessor()!;
+    expect(processor.onEnd()).toBeUndefined();
+    await expect(processor.forceFlush()).resolves.toBeUndefined();
+    await expect(processor.shutdown()).resolves.toBeUndefined();
+  });
 });
 
-describe('실제 SDK span 에 훅을 적용', () => {
+describe('실제 SDK tracer 에 processor 를 걸었을 때', () => {
   // jest 는 모듈을 자체 레지스트리로 불러와 HttpInstrumentation 의 require 훅이 걸리지 않는다.
   // 실제 HTTP 요청으로 하는 검증은 패키지 스모크 테스트(scripts/smoke-package.check.js)가 일반 Node 에서 한다.
-  // 여기서는 훅이 기대는 전제(SDK span 에 kind · attributes 가 있고 setAttribute 로 덮어쓸 수 있다)를 확인한다.
   const exporter = new InMemorySpanExporter();
-  const provider = new NodeTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
+  const provider = new NodeTracerProvider({
+    spanProcessors: [createQueryRedactionSpanProcessor() as never, new SimpleSpanProcessor(exporter)],
+  });
   const tracer = provider.getTracer('query-redaction-test');
 
   afterAll(async () => {
     await provider.shutdown();
   });
 
-  it('나가는 요청은 값을 전부, 들어오는 요청은 민감한 값만 가린 채 내보낸다', async () => {
-    const hook = createHttpQueryRedactionHook()!;
-    const client = tracer.startSpan('GET', {
+  it('어떤 계측이 만든 span 이든 시작할 때 실린 URL 을 가린 채 내보낸다', async () => {
+    tracer.startSpan('GET', {
       kind: SpanKind.CLIENT,
       attributes: { 'url.full': 'https://oauth.example.com/token?client_id=app&client_secret=TOPSECRET&code=AUTHCODE' },
-    });
-    hook(client);
-    client.end();
-    const server = tracer.startSpan('GET /cb', {
+    }).end();
+    tracer.startSpan('GET /cb', {
       kind: SpanKind.SERVER,
       attributes: { 'url.path': '/cb', 'url.query': 'code=AUTHCODE&state=XYZ&q=hello' },
-    });
-    hook(server);
-    server.end();
+    }).end();
+    // NestJS 계측처럼 HTTP 계측이 아닌 곳에서 요청 URL 을 복사한 내부 span
+    tracer.startSpan('SearchController.search', {
+      kind: SpanKind.INTERNAL,
+      attributes: { 'url.full': '/api/search?q=hello&code=AUTHCODE&state=XYZ' },
+    }).end();
     await provider.forceFlush();
 
     const spans = exporter.getFinishedSpans();
@@ -152,5 +160,6 @@ describe('실제 SDK span 에 훅을 적용', () => {
     );
     expect(spans[1].attributes['url.query']).toBe('code=REDACTED&state=REDACTED&q=hello');
     expect(spans[1].attributes['url.path']).toBe('/cb');
+    expect(spans[2].attributes['url.full']).toBe('/api/search?q=hello&code=REDACTED&state=REDACTED');
   });
 });

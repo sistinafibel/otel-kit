@@ -1,6 +1,6 @@
 {
   "name": "@cloudjun/otel-kit",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Zero-config OpenTelemetry bootstrap for Node.js services: traces, logs (winston), metrics over OTLP/HTTP. Works with SigNoz, Grafana, or any OTLP backend. Optional NestJS middlewares.",
   "keywords": [
     "opentelemetry",

@@ -5,6 +5,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-23
+
+### Fixed
+
+- HttpInstrumentation 이 아닌 계측이 만든 스팬에는 쿼리 문자열 값이 그대로 남던 문제를 고쳤습니다. NestJS 계측은 컨트롤러 스팬에 요청 URL 을 `url.full` 로 복사하는데, 0.3.0 은 HttpInstrumentation 의 훅으로만 가려 이 스팬을 놓쳤습니다. 이제 span processor 로 가려, 어떤 계측이 만든 스팬이든 시작할 때 실린 URL 속성에 적용됩니다. CLIENT 스팬은 나가는 요청, 그 밖의 스팬은 들어오는 요청의 방식을 따릅니다.
+
 ## [0.3.0] - 2026-11-23
 
 ### Changed

@@ -271,7 +271,7 @@ The `user` field picks only `id` (or `idx`), `role` and `isAnon` off `req.user` 
 
 ### Query strings in HTTP spans
 
-The HTTP instrumentation records the full URL of outgoing requests (`url.full`) and the query string of incoming ones (`url.query`). Left alone, that ships things like an OAuth `client_secret` or an account number sent as a query parameter straight into your trace store. otel-kit masks the values before the span is exported. Parameter names are kept, so you can still see what was sent.
+The HTTP instrumentation records the full URL of outgoing requests (`url.full`) and the query string of incoming ones (`url.query`). Left alone, that ships things like an OAuth `client_secret` or an account number sent as a query parameter straight into your trace store. otel-kit masks the values before the span is exported, on every span that carries a URL at start (the NestJS instrumentation copies the request URL onto its controller span, for example). Parameter names are kept, so you can still see what was sent.
 
 | Direction | Default | What happens |
 | --- | --- | --- |

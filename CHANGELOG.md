@@ -5,6 +5,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
+### Fixed
+
+- `moduleResolution`이 `node10`인 프로젝트(`module: commonjs`의 기본값, NestJS 기본 tsconfig)에서 `import ... from '@cloudjun/otel-kit'`가 TS2307로 실패하던 문제를 고쳤습니다. `typesVersions`의 와일드카드(`"*": ["dist/*"]`)가 루트 진입점의 타입 경로(`dist/index.d.ts`)까지 다시 매핑해 `dist/dist/index.d.ts`를 찾고 있었습니다. 와일드카드를 지우고 `nest`와 `register`만 남겼습니다. 런타임 동작은 바뀌지 않습니다.
+
+### Added
+
+- CI: 패키지 스모크 테스트가 세 진입점의 타입을 `moduleResolution` `node10`과 `node16` 양쪽에서 검사합니다.
+
 ## [0.2.0] - 2026-09-04
 
 ### Changed

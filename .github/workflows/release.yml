@@ -63,7 +63,8 @@ jobs:
             *)   dist_tag=latest ;;
           esac
           # typecheck·테스트·빌드·스모크는 위에서 이미 끝났으므로 prepack/prepublishOnly 를 다시 돌리지 않는다
-          npm publish --access public --tag "$dist_tag" --ignore-scripts
+          # verbose: 인증(OIDC 토큰 교환)이 실패하면 npm 이 이유를 이 수준에서만 남긴다. 토큰 값은 npm 이 가려서 찍는다
+          npm publish --access public --tag "$dist_tag" --ignore-scripts --loglevel verbose
       - name: Pack tarball for the GitHub Release
         run: npm pack --ignore-scripts # 방금 배포한 것과 같은 dist/ 로 만든다
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

@@ -7,6 +7,7 @@
 #   2. tarball 에 테스트·소스·커버리지가 섞여 들어가지 않았는지, 필수 진입점 파일이 있는지 확인
 #   3. 임시 프로젝트에 tarball 과 peer 인 @opentelemetry/api 를 설치 (버전은 devDependencies 와 동일하게 고정)
 #   4. `.`, `./nest`, `./register`, `./package.json` 진입점을 실제로 resolve/require 해 본다
+#   5. 세 진입점의 타입이 `moduleResolution` node10 · node16 양쪽에서 해석되는지 tsc 로 확인한다
 #
 # 사용법: bash scripts/smoke-package.sh   (로컬·CI 동일)
 set -euo pipefail
@@ -62,3 +63,19 @@ npm install --no-audit --no-fund --loglevel=error "$tarball" "@opentelemetry/api
 # --- 4. 진입점 검증 (스크립트는 설치된 패키지를 resolve 할 수 있도록 임시 프로젝트 안으로 복사한다)
 cp "$root/scripts/smoke-package.check.js" "$app/check.js"
 OTEL_SDK_DISABLED=true node "$app/check.js"
+
+# --- 5. 타입 해석 검증. exports map 을 읽지 않는 node10(= `module: commonjs` 의 기본값, NestJS 기본 tsconfig)과
+#        exports map 을 읽는 node16 을 둘 다 돌린다. 한쪽만 통과하는 패키지 설정을 걸러 낸다.
+#        optional peer(@nestjs/common · rxjs)는 설치하지 않으므로 skipLibCheck 로 선언 파일 내부 오류는 건너뛴다.
+ts_bin="$root/node_modules/.bin/tsc"
+cp "$root/scripts/smoke-package.types.ts" "$app/types-check.ts"
+for resolution in node10:commonjs node16:node16; do
+  module_resolution="${resolution%%:*}"
+  module_kind="${resolution##*:}"
+  if ! "$ts_bin" --noEmit --strict --skipLibCheck --target es2022 \
+      --module "$module_kind" --moduleResolution "$module_resolution" "$app/types-check.ts"; then
+    echo "::error::moduleResolution=${module_resolution} 에서 타입을 해석하지 못했습니다" >&2
+    exit 1
+  fi
+  echo "types ok (moduleResolution=${module_resolution})"
+done

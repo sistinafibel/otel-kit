@@ -42,6 +42,15 @@ export {
   HttpLoggerMiddlewareFn,
 } from './http/http-logger.middleware';
 
+export {
+  redactUrlQuery,
+  redactQueryString,
+  DEFAULT_QUERY_SENSITIVE_KEYS,
+  REDACTED_QUERY_VALUE,
+  IHttpQueryRedactionOptions,
+  QueryRedactionMode,
+} from './http/query-redaction';
+
 // 소비 프로젝트가 @opentelemetry/api 를 직접 설치하지 않아도 타입을 쓸 수 있도록 재export
 export { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 export type { Meter, Attributes, Span, ObservableResult } from '@opentelemetry/api';

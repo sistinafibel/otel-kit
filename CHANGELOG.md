@@ -5,6 +5,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Changed
+
+- **HTTP 스팬의 쿼리 문자열 값을 기본으로 가립니다.** 지금까지는 HttpInstrumentation 기본 동작 그대로 나가는 요청의 `url.full`과 들어오는 요청의 `url.query`에 쿼리 값이 실렸습니다 (OAuth `client_secret`, 쿼리로 보내는 계좌번호 등). 이제 나가는 요청은 모든 값을, 들어오는 요청은 민감한 이름의 값만 `REDACTED`로 바꿉니다. 키 이름은 남습니다. 예전처럼 두려면 `httpQueryRedaction: { outgoing: 'none', incoming: 'none' }`을 넘깁니다.
+
+### Added
+
+- `initObservability`의 `httpQueryRedaction` 옵션: 방향별 방식(`all` · `sensitive` · `none`), 추가 민감 키(`extraSensitiveKeys`), 가리지 않을 키(`allowedKeys`).
+- `redactUrlQuery`, `redactQueryString`, `DEFAULT_QUERY_SENSITIVE_KEYS`: 앱이 직접 남기는 로그의 URL에 같은 규칙을 적용할 수 있습니다.
+- CI: 패키지 스모크 테스트가 실제 HTTP 요청을 보내, 내보낸 트레이스에 쿼리의 비밀 값이 남지 않는지 확인합니다.
+
 ## [0.2.1] - 2026-11-23
 
 ### Fixed

@@ -42,7 +42,7 @@ OpenTelemetry SDK를 직접 연결하려면 준비할 작업이 많습니다. �
 
 - **호출 한 번으로 세 가지 신호를 준비합니다.** `initObservability()`가 트레이스·로그·메트릭을 모두 설정합니다. 전송할 주소가 실제로 지정된 신호만 활성화되므로, 사용하지 않는 신호는 설정하지 않고 그대로 두면 됩니다.
 - **새로 익혀야 하는 설정 형식이 없습니다.** `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_*`, `OTEL_TRACES_SAMPLER`와 같은 OpenTelemetry 표준 환경 변수를 그대로 따릅니다.
-- **기본값이 안전합니다.** HTTP 로거는 직접 활성화하기 전까지 요청 본문과 쿼리 스트링과 클라이언트 IP를 모두 기록하지 않습니다. 비밀번호나 토큰처럼 민감한 키는 중첩된 객체 안까지 탐색해 마스킹하고, 오류 객체는 깊이와 크기를 제한해 기록합니다.
+- **기본값이 안전합니다.** HTTP 로거는 직접 활성화하기 전까지 요청 본문과 쿼리 스트링과 클라이언트 IP를 모두 기록하지 않습니다. HTTP 스팬에 실리는 쿼리 문자열 값은 내보내기 전에 가립니다. 비밀번호나 토큰처럼 민감한 키는 중첩된 객체 안까지 탐색해 마스킹하고, 오류 객체는 깊이와 크기를 제한해 기록합니다.
 - **어디까지 신뢰할지 직접 지정합니다.** `X-Forwarded-For` 헤더는 위조할 수 있으므로, 애플리케이션 앞에 위치한 프록시가 몇 대인지 지정하기 전까지는 이 헤더를 사용하지 않습니다.
 - **프로세스 종료를 대신 처리하지 않습니다.** `SIGTERM`과 같은 종료 신호는 애플리케이션이 그대로 관리합니다. 원하는 위치에서 `await observability.shutdown()`을 호출하면 됩니다.
 - **프레임워크를 가리지 않습니다.** 기본 헬퍼 함수는 순수 `http` 모듈, Express, Fastify 어디에서나 동작하고, NestJS에서는 `/nest` 진입점이 미들웨어와 인터셉터를 추가로 제공합니다.
@@ -190,6 +190,7 @@ initObservability({
   resourceAttributes?: Record<string, string | number | boolean>;
   sampler?: Sampler;                    // OTEL_TRACES_SAMPLER보다 우선합니다
   extraInstrumentations?: Instrumentation[]; // 예: @opentelemetry/instrumentation-pg
+  httpQueryRedaction?: { outgoing?, incoming?, extraSensitiveKeys?, allowedKeys? }; // "HTTP 스팬의 쿼리 문자열" 참고
   enableTraces?: boolean; enableLogs?: boolean; enableMetrics?: boolean;
   metricExportIntervalMs?: number; metricExportTimeoutMs?: number;
 });
@@ -268,6 +269,34 @@ app.use(createHttpLoggerMiddleware({
 
 `user` 필드에는 기본적으로 `req.user`에서 `id`(또는 `idx`), `role`, `isAnon`만 선택해 기록합니다. 사용자 객체의 구조가 다르다면 `getUser` 옵션으로 필요한 값만 추출한 요약 객체를 반환하세요. 객체를 통째로 반환하면 개인정보가 그대로 로그에 남습니다.
 
+### HTTP 스팬의 쿼리 문자열
+
+HTTP 계측은 나가는 요청의 전체 URL(`url.full`)과 들어오는 요청의 쿼리 문자열(`url.query`)을 스팬에 싣습니다. 그대로 두면 쿼리로 보내는 OAuth `client_secret`이나 계좌번호 같은 값이 트레이스 저장소로 넘어갑니다. otel-kit은 스팬을 내보내기 전에 값을 가립니다. 파라미터 이름은 남기므로 무엇이 오갔는지는 알 수 있습니다.
+
+| 방향 | 기본값 | 동작 |
+| --- | --- | --- |
+| 나가는 요청 (`url.full`) | `all` | 모든 값을 `REDACTED`로 바꿉니다. 외부 API에 넘기는 값은 디버깅에 거의 쓰이지 않고, 비밀 값의 이름을 미리 알기 어렵습니다. |
+| 들어오는 요청 (`url.query`) | `sensitive` | 키 이름이 민감해 보이는 값(`token`, `code`, `state`, `secret`, `password`, `email` 등)만 가립니다. 검색어와 페이지 번호는 남아, 사용자가 무엇을 했는지 알 수 있습니다. |
+
+```ts
+initObservability({
+  httpQueryRedaction: {
+    outgoing: 'all',                 // 'all' | 'sensitive' | 'none'
+    incoming: 'sensitive',
+    extraSensitiveKeys: ['memberNo'], // 대소문자를 가리지 않고 부분 일치로 비교합니다
+    allowedKeys: ['page', 'limit'],   // 이 이름과 정확히 같은 키는 가리지 않습니다
+  },
+});
+```
+
+앱이 직접 남기는 로그는 여기에 포함되지 않습니다. 요청 URL을 직접 로그로 남긴다면 같은 규칙을 적용하세요.
+
+```ts
+import { redactUrlQuery } from '@cloudjun/otel-kit';
+
+logger.info('request', { url: redactUrlQuery(req.originalUrl) }); // /search?q=hello&code=REDACTED
+```
+
 ### 프록시 뒤에 있는 클라이언트 IP
 
 ```ts
@@ -322,6 +351,7 @@ export class AppModule {}
 | | `runWithSpan` | HTTP 요청이 아닌 작업을 스팬으로 감싸기 |
 | | `createOtelLogTransport` | Winston 로그를 OTLP로 전송 |
 | | `createHttpLoggerMiddleware`, `maskSensitiveData`, `DEFAULT_SENSITIVE_KEYS` | 요청 로깅과 민감 정보 마스킹 |
+| | `redactUrlQuery`, `redactQueryString`, `DEFAULT_QUERY_SENSITIVE_KEYS` | 직접 남기는 로그의 쿼리 문자열 가리기 |
 | | `getClientIp`, `extractIPv4`, `createRealIpMiddleware` | 신뢰하는 프록시 수를 기준으로 IP 판별 |
 | | `getMeter`, `getActiveTraceId`, `getActiveSpanId` | 메트릭과 현재 트레이스 정보 조회 |
 | | `SpanKind`, `SpanStatusCode`와 타입들 | `@opentelemetry/api`에서 그대로 다시 export |

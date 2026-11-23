@@ -42,7 +42,7 @@ Wiring up the OpenTelemetry SDK by hand is a lot of work. You install a dozen pa
 
 - **One call, three signals.** `initObservability()` sets up trace, log and metric providers. Only the signals that actually have an endpoint are turned on, so you can ignore the ones you don't use.
 - **No config format to learn.** It honors the standard OpenTelemetry variables — `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_*`, `OTEL_TRACES_SAMPLER` and friends. There is nothing otel-kit-specific to memorize.
-- **Safe defaults.** The HTTP logger records no request bodies, no query strings and no client IPs until you opt in. Secret-looking keys are masked even inside nested objects, and error objects are serialized with depth and size limits.
+- **Safe defaults.** The HTTP logger records no request bodies, no query strings and no client IPs until you opt in. Query string values on HTTP spans are masked before export. Secret-looking keys are masked even inside nested objects, and error objects are serialized with depth and size limits.
 - **You decide what to trust.** `X-Forwarded-For` can be forged, so it is ignored until you say how many proxies sit in front of your app.
 - **Shutdown stays yours.** otel-kit never installs its own `SIGTERM` handler. You call `await observability.shutdown()` wherever it belongs in your app.
 - **Framework agnostic.** The core helpers work with plain `http`, Express or Fastify. On NestJS, the `/nest` entry point adds a middleware and an interceptor.
@@ -190,6 +190,7 @@ initObservability({
   resourceAttributes?: Record<string, string | number | boolean>;
   sampler?: Sampler;                    // takes precedence over OTEL_TRACES_SAMPLER
   extraInstrumentations?: Instrumentation[]; // e.g. @opentelemetry/instrumentation-pg
+  httpQueryRedaction?: { outgoing?, incoming?, extraSensitiveKeys?, allowedKeys? }; // see "Query strings in HTTP spans"
   enableTraces?: boolean; enableLogs?: boolean; enableMetrics?: boolean;
   metricExportIntervalMs?: number; metricExportTimeoutMs?: number;
 });
@@ -268,6 +269,34 @@ Turn on `logBody` and request bodies are included too — but keys known to hold
 
 The `user` field picks only `id` (or `idx`), `role` and `isAnon` off `req.user` by default. If your user object has a different shape, pass `getUser` and return a small summary. Returning the whole object puts all of it in your logs.
 
+### Query strings in HTTP spans
+
+The HTTP instrumentation records the full URL of outgoing requests (`url.full`) and the query string of incoming ones (`url.query`). Left alone, that ships things like an OAuth `client_secret` or an account number sent as a query parameter straight into your trace store. otel-kit masks the values before the span is exported. Parameter names are kept, so you can still see what was sent.
+
+| Direction | Default | What happens |
+| --- | --- | --- |
+| Outgoing (`url.full`) | `all` | Every value becomes `REDACTED`. Values sent to third-party APIs rarely help debugging, and their secret parameters have names you can't predict. |
+| Incoming (`url.query`) | `sensitive` | Only values whose key looks sensitive (`token`, `code`, `state`, `secret`, `password`, `email`, ...) are masked. Search terms and page numbers stay, so you can still tell what a user did. |
+
+```ts
+initObservability({
+  httpQueryRedaction: {
+    outgoing: 'all',                 // 'all' | 'sensitive' | 'none'
+    incoming: 'sensitive',
+    extraSensitiveKeys: ['memberNo'], // matched as a case-insensitive substring
+    allowedKeys: ['page', 'limit'],   // exact names that are never masked
+  },
+});
+```
+
+Your own logs are not covered by this. If you log request URLs yourself, run them through the same rule:
+
+```ts
+import { redactUrlQuery } from '@cloudjun/otel-kit';
+
+logger.info('request', { url: redactUrlQuery(req.originalUrl) }); // /search?q=hello&code=REDACTED
+```
+
 ### Client IP behind proxies
 
 ```ts
@@ -322,6 +351,7 @@ export class AppModule {}
 | | `runWithSpan` | Spans for non-HTTP work |
 | | `createOtelLogTransport` | Winston logs over OTLP |
 | | `createHttpLoggerMiddleware`, `maskSensitiveData`, `DEFAULT_SENSITIVE_KEYS` | Request logging and redaction |
+| | `redactUrlQuery`, `redactQueryString`, `DEFAULT_QUERY_SENSITIVE_KEYS` | Query string masking for your own logs |
 | | `getClientIp`, `extractIPv4`, `createRealIpMiddleware` | Trusted-proxy IP resolution |
 | | `getMeter`, `getActiveTraceId`, `getActiveSpanId` | Metrics and current trace context |
 | | `SpanKind`, `SpanStatusCode` and types | Re-exported from `@opentelemetry/api` |
